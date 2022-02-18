@@ -1,9 +1,9 @@
 package cqlify
 
 import (
-	"cqlify/cqlparser"
 	"flag"
 	"fmt"
+	"github.com/bharathcs/cqlify/cqlparser"
 	"io"
 	"log"
 	"os"

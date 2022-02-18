@@ -1,7 +1,7 @@
 package cqlparser
 
 import (
-	"cqlify/cqlutils"
+	"github.com/bharathcs/cqlify/cqlutils"
 	"reflect"
 	"testing"
 )

@@ -1,8 +1,8 @@
 package cqlparser
 
 import (
-	"cqlify/cqlutils"
 	"fmt"
+	"github.com/bharathcs/cqlify/cqlutils"
 	"io"
 	"io/ioutil"
 	"regexp"
