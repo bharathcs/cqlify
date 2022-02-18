@@ -1,8 +1,11 @@
 package cqlparser
 
 import (
+	"fmt"
 	"github.com/bharathcs/cqlify/cqlutils"
+	"io"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -120,26 +123,6 @@ garbage goes here ;`,
 		})
 	}
 }
-func Test_getCreateTableStatements_checkOther(t *testing.T) {
-	tests := []struct {
-		name    string
-		args    string
-		want    string
-		wantErr bool
-	}{}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := getCreateTableStatements(tt.args)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getCreateTableStatements() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("getCreateTableStatements() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
 func Test_parseCreateTableStatements(t *testing.T) {
 	type args struct {
@@ -172,7 +155,7 @@ func Test_parseCreateTableStatements(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			args:    `CreATE TABLE data_atrest (pk text PRIMARY KEY,c0 int) WITH scylla_encryption_options = {'cipher_algorithm' : 'AES/ECB/PKCS5Padding','secret_key_strength' : 128,'key_provider': 'LocalFileSystemKeyProviderFactory','secret_key_file': '/etc/scylla/data_encryption_keys/secret_key'};`,
+			args:    `CreATE TABLE data_atrest (pk text PRIMARY KEY,c0 ` + " \t " + ` int) WITH scylla_encryption_options = {'cipher_algorithm' : 'AES/ECB/PKCS5Padding','secret_key_strength' : 128,'key_provider': 'LocalFileSystemKeyProviderFactory','secret_key_file': '/etc/scylla/data_encryption_keys/secret_key'};`,
 			want:    cqlutils.TableStruct{"data_atrest", []cqlutils.ColumnsStruct{{"pk", cqlutils.TypeText}, {"c0", cqlutils.TypeInt}}},
 			wantErr: false,
 		},
@@ -215,6 +198,58 @@ func Test_parseCreateTableStatements(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("parseCreateTableStatements() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+type BadReader struct{}
+
+func (bd *BadReader) Read(out []byte) (int, error) {
+	return 0, fmt.Errorf("")
+}
+
+func TestParseTable(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    io.Reader
+		want    cqlutils.TableStruct
+		wantErr bool
+	}{
+		{
+			name:    "happy path",
+			args:    strings.NewReader(`CREATE Table caching (k int PRIMARY KEY,v1 int,v2 int,) WITH caching = {'enabled': 'true'};`),
+			want:    cqlutils.TableStruct{"caching", []cqlutils.ColumnsStruct{{"k", cqlutils.TypeInt}, {"v1", cqlutils.TypeInt}, {"v2", cqlutils.TypeInt}}},
+			wantErr: false,
+		},
+		{
+			name:    "bad reader",
+			args:    &BadReader{},
+			want:    cqlutils.TableStruct{},
+			wantErr: true,
+		},
+		{
+			name:    "cannot find valid create",
+			args:    strings.NewReader(`CREATE Table (k int PRIMARY KEY,v1 int,v2 int,) WITH caching = {'enabled': 'true'};`),
+			want:    cqlutils.TableStruct{},
+			wantErr: true,
+		},
+		{
+			name:    "cannot parse ",
+			args:    strings.NewReader(`CREATE Table caching (k foo PRIMARY KEY,v1 bar,v2 baz,) WITH caching = {'enabled': 'true'};`),
+			want:    cqlutils.TableStruct{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseTable(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseTable() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseTable() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
