@@ -1,5 +1,4 @@
-name: Go Build & Test
-
+name: Upload Code Coverage to CodeCov.io
 on:
   push:
     branches: [ main ]
