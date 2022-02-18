@@ -1,0 +1,52 @@
+name: Go Build & Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.14
+
+    - name: Build 🔨
+      continue-on-error: false
+      run: go build -v ./...
+
+    - name: Test 🧪
+      continue-on-error: false
+      run: go test -v ./...
+      
+    - name: Format
+      run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then exit 1; fi
+      if: matrix.os == 'ubuntu-latest'
+    
+  run-codecov:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+
+      - name: Run coverage
+        run: go test -race -coverprofile=coverage.out -covermode=atomic
+
+      - uses: codecov/codecov-action@v2
+        with:
+          fail_ci_if_error: true # optional (default = false)
+          verbose: true # optional (default = false)
