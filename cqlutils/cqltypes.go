@@ -2,9 +2,11 @@ package cqlutils
 
 import (
 	"fmt"
+	"math"
 	"strings"
 )
 
+// CqlNativeType (ref: https://docs.scylladb.com/getting-started/types/)
 type CqlNativeType int
 
 const (
@@ -31,62 +33,52 @@ const (
 	TypeVarint
 )
 
+var mapping = map[string]CqlNativeType{
+	"ascii":     TypeAscii,
+	"bigint":    TypeBigint,
+	"blob":      TypeBlob,
+	"boolean":   TypeBoolean,
+	"counter":   TypeCounter,
+	"date":      TypeDate,
+	"decimal":   TypeDecimal,
+	"double":    TypeDouble,
+	"duration":  TypeDuration,
+	"float":     TypeFloat,
+	"inet":      TypeInet,
+	"int":       TypeInt,
+	"smallint":  TypeSmallint,
+	"text":      TypeText,
+	"time":      TypeTime,
+	"timestamp": TypeTimestamp,
+	"timeuuid":  TypeTimeuuid,
+	"tinyint":   TypeTinyint,
+	"uuid":      TypeUuid,
+	"varchar":   TypeVarchar,
+	"varint":    TypeVarint,
+}
+
 func (nativeType CqlNativeType) String() string {
-	return []string{
-		"ascii", "bigint", "blob", "boolean", "counter", "date", "decimal", "double", "duration", "float", "inet",
-		"int", "smallint", "text", "time", "timestamp", "timeuuid", "tinyint", "uuid", "varchar", "varint",
-	}[nativeType]
-}
-
-func GetCqlNativeType(input string) (CqlNativeType, error) {
-	switch strings.ToLower(strings.TrimSpace(input)) {
-	case "ascii":
-		return TypeAscii, nil
-	case "bigint":
-		return TypeBigint, nil
-	case "blob":
-		return TypeBlob, nil
-	case "boolean":
-		return TypeBoolean, nil
-	case "counter":
-		return TypeCounter, nil
-	case "date":
-		return TypeDate, nil
-	case "decimal":
-		return TypeDecimal, nil
-	case "double":
-		return TypeDouble, nil
-	case "duration":
-		return TypeDuration, nil
-	case "float":
-		return TypeFloat, nil
-	case "inet":
-		return TypeInet, nil
-	case "int":
-		return TypeInt, nil
-	case "smallint":
-		return TypeSmallint, nil
-	case "text":
-		return TypeText, nil
-	case "time":
-		return TypeTime, nil
-	case "timestamp":
-		return TypeTimestamp, nil
-	case "timeuuid":
-		return TypeTimeuuid, nil
-	case "tinyint":
-		return TypeTinyint, nil
-	case "uuid":
-		return TypeUuid, nil
-	case "varchar":
-		return TypeVarchar, nil
-	case "varint":
-		return TypeVarint, nil
-	default:
-		return -1, fmt.Errorf("could not recognise type '%s'", input)
+	arr := []string{
+		"ascii", "bigint", "blob", "boolean", "counter", "date", "decimal", "double", "duration", "float",
+		"inet", "int", "smallint", "text", "time", "timestamp", "timeuuid", "tinyint", "uuid", "varchar",
+		"varint",
 	}
+	if nativeType < 0 || int(nativeType) >= len(arr) {
+		return "INVALID CQL TYPE"
+	}
+	return arr[nativeType]
 }
 
+// GetCqlNativeType expects a string input referencing a native CQL type
+func GetCqlNativeType(input string) (CqlNativeType, error) {
+	formatted := strings.ToLower(strings.TrimSpace(input))
+	if res, ok := mapping[formatted]; ok {
+		return res, nil
+	}
+	return -1, fmt.Errorf("could not recognise type '%s'", input)
+}
+
+// TableStruct Representation of a typical table (name & columns)
 type TableStruct struct {
 	TableName string
 	Columns   []ColumnsStruct
@@ -98,7 +90,30 @@ func (t TableStruct) String() string {
 		cols = append(cols, fmt.Sprint(c))
 	}
 
-	return fmt.Sprintf("{%s: %s}", t.TableName, strings.Join(cols, ", "))
+	return fmt.Sprintf("%s: {%s}", t.TableName, strings.Join(cols, ", "))
+}
+
+// PrettyString returns a better formatted (multiline, indented) string output for the table.
+func (t TableStruct) PrettyString() string {
+	if len(t.Columns) == 0 {
+		return fmt.Sprintf("%s: {}", t.TableName)
+	}
+
+	maxNameLength := 0
+	for _, c := range t.Columns {
+		maxNameLength = int(math.Max(float64(maxNameLength), float64(len(c.Name))))
+	}
+
+	var res []string
+	for _, c := range t.Columns {
+		var spacing string
+		for i := len(c.Name); i <= maxNameLength+1; i++ {
+			spacing = spacing + " "
+		}
+		res = append(res, fmt.Sprint(c.Name, spacing, fmt.Sprint(c.Type)))
+	}
+
+	return fmt.Sprintf("%s: {\n%s\n}", t.TableName, strings.Join(res, ",\n"))
 }
 
 type ColumnsStruct struct {
